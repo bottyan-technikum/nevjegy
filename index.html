@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="hu">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Névjegy-készítő</title>
+  <style>
+    :root { --hatter: #0f1226; --panel: #1b1f3b; --szoveg: #f2f3ff; --halvany: #9aa0c7;
+            --kiemel: #7c5cff; --kiemel2: #22d3ee; --hiba: #ff6b6b; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: var(--hatter); color: var(--szoveg);
+           font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+    /* ---------- SZERKESZTŐ ---------- */
+    .szerkeszto { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 24px; min-height: 100vh; }
+    .bal, .jobb { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    h1 { margin: 0; font-size: 1.7rem; }
+    .tipp { color: var(--halvany); margin: 0; line-height: 1.5; }
+    .fajl { background: #0a0c1a; border-radius: 14px; overflow: hidden; border: 1px solid #2d3363; flex: 1; display: flex; flex-direction: column; }
+    .fajl-fej { padding: 8px 14px; background: #161a33; color: var(--halvany); font: 13px ui-monospace, Consolas, monospace; }
+    textarea { flex: 1; min-height: 300px; width: 100%; resize: none; border: 0; outline: none; padding: 16px;
+               background: transparent; color: #e6e6ff; font: 18px/1.7 ui-monospace, Consolas, "Courier New", monospace; }
+    .uzenet { min-height: 1.6em; font: 15px ui-monospace, Consolas, monospace; color: #7ee787; }
+    .uzenet.hiba { color: var(--hiba); }
+    .emojik { display: flex; flex-wrap: wrap; gap: 6px; }
+    .emojik button { font-size: 1.5rem; background: var(--panel); border: 0; border-radius: 10px; padding: 6px 8px; cursor: pointer; }
+    .kesz { padding: 18px; font-size: 1.2rem; font-weight: 700; color: white; border: 0; border-radius: 14px; cursor: pointer;
+            background: linear-gradient(135deg, var(--kiemel), var(--kiemel2)); }
+    .kesz:disabled { opacity: .4; cursor: not-allowed; }
+    .elonezet { flex: 1; display: grid; place-items: center; background: #ffffff10; border-radius: 14px; padding: 20px; }
+
+    /* ---------- NÉVJEGYKÁRTYA (szerkesztőben és telefonon is ez jelenik meg) ---------- */
+    .kartya { width: min(420px, 100%); border-radius: 24px; padding: 34px 28px; text-align: center; position: relative; }
+    .kartya .emoji { font-size: 4.5rem; line-height: 1; }
+    .kartya .nev { font-size: 2rem; font-weight: 800; margin: 14px 0 6px; overflow-wrap: anywhere; }
+    .kartya .motto { font-style: italic; opacity: .85; margin: 0 0 18px; overflow-wrap: anywhere; }
+    .kartya .hobbik { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+    .kartya .hobbik span { padding: 6px 12px; border-radius: 999px; font-size: .95rem; }
+
+    .stilus-neon { background: #0b0b14; color: white; border: 3px solid var(--sz1);
+                   box-shadow: 0 0 24px var(--sz1), inset 0 0 24px color-mix(in srgb, var(--sz2) 40%, transparent); }
+    .stilus-neon .nev { color: var(--sz1); text-shadow: 0 0 12px var(--sz1); }
+    .stilus-neon .hobbik span { border: 1px solid var(--sz2); color: var(--sz2); }
+
+    .stilus-pasztell { background: linear-gradient(135deg, var(--sz1), var(--sz2)); color: #1d1d2b; }
+    .stilus-pasztell .hobbik span { background: #ffffffaa; }
+
+    .stilus-retro { background: #fff8e7; color: #222; border: 4px solid #222; box-shadow: 10px 10px 0 var(--sz1);
+                    font-family: ui-monospace, Consolas, "Courier New", monospace; border-radius: 4px; }
+    .stilus-retro .nev { color: var(--sz2); text-transform: uppercase; }
+    .stilus-retro .hobbik span { border: 2px solid #222; background: var(--sz1); border-radius: 4px; color: #222; }
+
+    .stilus-minimal { background: white; color: #222; border-top: 10px solid var(--sz1); }
+    .stilus-minimal .hobbik span { background: color-mix(in srgb, var(--sz2) 20%, white); }
+
+    /* ---------- QR ABLAK ---------- */
+    .fedolap { position: fixed; inset: 0; background: #000c; display: none; place-items: center; padding: 16px; }
+    .fedolap.lathato { display: grid; }
+    .qr-doboz { background: white; color: #222; border-radius: 24px; padding: 28px; text-align: center; max-width: 440px; }
+    .qr-doboz h2 { margin: 0 0 6px; }
+    .qr-doboz svg { width: 300px; height: 300px; }
+    .qr-doboz .link { font-size: .75rem; color: #666; word-break: break-all; }
+    .qr-doboz button { margin-top: 14px; padding: 12px 18px; border: 0; border-radius: 12px; font-size: 1rem; cursor: pointer; }
+    .figyelmeztet { color: #b00; font-size: .85rem; }
+
+    /* ---------- TELEFONOS MEGJELENÍTÉS ---------- */
+    .megjelenito { min-height: 100vh; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 28px; padding: 24px 16px; }
+    .labjegyzet { color: var(--halvany); text-align: center; font-size: .9rem; line-height: 1.5; max-width: 420px; }
+
+    @media (max-width: 800px) { .szerkeszto { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+<!-- ===================== SZERKESZTŐ MÓD ===================== -->
+<div class="szerkeszto" id="szerkeszto">
+  <div class="bal">
+    <h1>Írd meg a saját névjegyedet! ✍️</h1>
+    <p class="tipp">Írd át az <b>idézőjelek közötti</b> részeket – a jobb oldalon azonnal látod az eredményt.
+      Ez valódi kód: ha elrontasz egy idézőjelet, a gép szólni fog.</p>
+    <div class="fajl">
+      <div class="fajl-fej">📄 nevjegy.cfg</div>
+      <textarea id="kod" spellcheck="false"></textarea>
+    </div>
+    <div class="uzenet" id="uzenet"></div>
+    <div class="emojik" id="emojik"></div>
+  </div>
+  <div class="jobb">
+    <div class="elonezet"><div id="elonezet"></div></div>
+    <button class="kesz" id="keszGomb">Kész vagyok! Kérem a QR-kódot 📱</button>
+  </div>
+</div>
+
+<!-- ===================== QR ABLAK ===================== -->
+<div class="fedolap" id="fedolap">
+  <div class="qr-doboz">
+    <h2>Szkenneld be a telefonoddal! 📸</h2>
+    <p>Ez a te névjegyed címe. Elmentheted, megoszthatod.</p>
+    <div id="qr"></div>
+    <div class="link" id="link"></div>
+    <p class="figyelmeztet" id="figyelmeztet"></p>
+    <button onclick="bezar()">Vissza a szerkesztéshez</button>
+    <button onclick="ujLatogato()" style="background:#222;color:white">Új névjegy (következő látogató)</button>
+  </div>
+</div>
+
+<!-- ===================== MEGJELENÍTŐ MÓD (ezt látja a telefon) ===================== -->
+<div class="megjelenito" id="megjelenito">
+  <div id="kartyaHelye"></div>
+  <p class="labjegyzet" id="labjegyzet"></p>
+</div>
+
+<script src="qrcode.min.js"></script>
+<script>
+
+  const ISKOLA = 'Vak Bottyán János Katolikus Műszaki és Közgazdasági Technikum, Gimnázium és Kollégium';
+
+  const SABLON = `// Írd át az idézőjelek közötti részeket!
+nev    = "Kovács Peti"
+motto  = "A bug nem hiba, hanem kaland."
+hobbi  = "foci, gitár, Minecraft"
+emoji  = "🚀"
+
+// Színek: angol szín neve (pl. tomato, gold, hotpink)
+// vagy hexakód (pl. #ff6600)
+szin1  = "hotpink"
+szin2  = "deepskyblue"
+
+// Stílus: neon, pasztell, retro vagy minimal
+stilus = "neon"`;
+
+  const MEZOK = ['nev', 'motto', 'hobbi', 'emoji', 'szin1', 'szin2', 'stilus'];
+  const STILUSOK = ['neon', 'pasztell', 'retro', 'minimal'];
+  // Rövid URL-paraméternevek, hogy a QR-kód ne legyen túl sűrű
+  const ROVID = { nev: 'n', motto: 'm', hobbi: 'h', emoji: 'e', szin1: 'a', szin2: 'b', stilus: 's' };
+
+  // ------------------------------------------------------------
+  //  "FORDÍTÓ": a szöveget beállításokká alakítja, vagy hibát dob
+  // ------------------------------------------------------------
+  function feldolgoz(szoveg) {
+    const adat = {};
+    const sorok = szoveg.split('\n');
+    for (let i = 0; i < sorok.length; i++) {
+      const sor = sorok[i].trim();
+      if (sor === '' || sor.startsWith('//')) continue;          // üres sor, megjegyzés
+      const m = sor.match(/^([a-z0-9]+)\s*=\s*"([^"]*)"$/i);      // kulcs = "érték"
+      if (!m) throw new Error(`${i + 1}. sor: nem értem. Formátum: kulcs = "érték" (két idézőjel kell!)`);
+      const [, kulcs, ertek] = m;
+      if (!MEZOK.includes(kulcs)) throw new Error(`${i + 1}. sor: nincs ilyen beállítás: „${kulcs}”`);
+      if (ertek.length > 60) throw new Error(`${i + 1}. sor: ez túl hosszú (max. 60 karakter)`);
+      adat[kulcs] = ertek;
+    }
+    return ellenoriz(adat);
+  }
+
+  // A beállítások ellenőrzése – a telefonon is lefut, mert az URL-t bárki átírhatja!
+  function ellenoriz(adat) {
+    const a = { nev: '', motto: '', hobbi: '', emoji: '🙂', szin1: '#7c5cff', szin2: '#22d3ee', stilus: 'neon', ...adat };
+    for (const k of ['szin1', 'szin2'])
+      if (!CSS.supports('color', a[k])) throw new Error(`A „${a[k]}” színt nem ismeri a böngésző. Próbáld: red, gold, #33cc99`);
+    if (!STILUSOK.includes(a.stilus)) throw new Error(`Ismeretlen stílus: „${a.stilus}”. Választható: ${STILUSOK.join(', ')}`);
+    if (a.nev.trim() === '') throw new Error('A nev nem lehet üres 🙂');
+    return a;
+  }
+
+  // ------------------------------------------------------------
+  //  KÁRTYA ELKÉSZÍTÉSE – textContent-et használunk, nem innerHTML-t,
+  //  így a beírt szöveg sosem futhat le kódként (XSS-védelem)
+  // ------------------------------------------------------------
+  function kartyaEpit(a) {
+    const k = document.createElement('div');
+    k.className = 'kartya stilus-' + a.stilus;
+    k.style.setProperty('--sz1', a.szin1);   // CSS-változók: a stílusok ezekből dolgoznak
+    k.style.setProperty('--sz2', a.szin2);
+    const elem = (osztaly, szoveg, tag = 'div') => {
+      const e = document.createElement(tag); e.className = osztaly; e.textContent = szoveg; return e;
+    };
+    k.append(elem('emoji', a.emoji), elem('nev', a.nev));
+    if (a.motto) k.append(elem('motto', a.motto, 'p'));
+    const h = elem('hobbik', '');
+    a.hobbi.split(',').map(s => s.trim()).filter(Boolean).forEach(s => h.append(elem('', s, 'span')));
+    k.append(h);
+    return k;
+  }
+
+  // ------------------------------------------------------------
+  //  SZERKESZTŐ MŰKÖDÉSE
+  // ------------------------------------------------------------
+  const kod = document.getElementById('kod');
+  let aktualis = null;
+
+  function frissit() {
+    const u = document.getElementById('uzenet');
+    try {
+      aktualis = feldolgoz(kod.value);
+      document.getElementById('elonezet').replaceChildren(kartyaEpit(aktualis));
+      u.className = 'uzenet'; u.textContent = '✔ Hibátlan kód, a névjegy elkészült.';
+      document.getElementById('keszGomb').disabled = false;
+    } catch (hiba) {
+      aktualis = null;
+      u.className = 'uzenet hiba'; u.textContent = '✖ ' + hiba.message;
+      document.getElementById('keszGomb').disabled = true;
+    }
+  }
+
+  // Emoji-gombok: a látogatónak nem kell emojit gépelnie
+  ['🚀', '⚽', '🎮', '🎸', '🐱', '🐶', '🌈', '🔥', '🦄', '🍕', '🎨', '💻', '🏀', '📚', '🌟', '🦊']
+    .forEach(em => {
+      const g = document.createElement('button');
+      g.textContent = em;
+      g.title = 'Emoji beírása a kódba';
+      g.onclick = () => {
+        const minta = /^(\s*emoji\s*=\s*)"[^"]*"/m;
+        kod.value = minta.test(kod.value)
+          ? kod.value.replace(minta, `$1"${em}"`)
+          : kod.value.trimEnd() + `\nemoji  = "${em}"`;   // ha kitörölték a sort, visszarakjuk
+        frissit();
+      };
+      document.getElementById('emojik').append(g);
+    });
+
+  function linkKeszit(a) {
+    const p = new URLSearchParams();
+    for (const k of MEZOK) if (a[k]) p.set(ROVID[k], a[k]);
+    return location.origin + location.pathname + '?' + p.toString();
+  }
+
+  document.getElementById('keszGomb').onclick = () => {
+    if (!aktualis) return;
+    const link = linkKeszit(aktualis);
+    const qr = qrcode(0, 'M');      // 0 = automatikus méret, M = közepes hibajavítás
+    qr.addData(link, 'Byte');
+    qr.make();
+    document.getElementById('qr').innerHTML = qr.createSvgTag({ cellSize: 6, margin: 2, scalable: true });
+    document.getElementById('link').textContent = link;
+    document.getElementById('figyelmeztet').textContent = location.protocol === 'file:'
+      ? '⚠ Az oldal most a saját gépről fut (file://), ezt a telefon nem éri el. Töltsd fel GitHub Pages-re!'
+      : '';
+    document.getElementById('fedolap').classList.add('lathato');
+  };
+
+  function bezar() { document.getElementById('fedolap').classList.remove('lathato'); }
+  function ujLatogato() { bezar(); kod.value = SABLON; frissit(); kod.focus(); }
+
+  // ------------------------------------------------------------
+  //  INDULÁS: van adat az URL-ben? -> megjelenítő mód, különben szerkesztő
+  // ------------------------------------------------------------
+  const param = new URLSearchParams(location.search);
+  if (param.has('n')) {
+    document.getElementById('szerkeszto').style.display = 'none';
+    document.getElementById('megjelenito').style.display = 'flex';
+    const adat = {};
+    for (const k of MEZOK) if (param.has(ROVID[k])) adat[k] = param.get(ROVID[k]).slice(0, 60);
+    try {
+      const a = ellenoriz(adat);
+      document.title = a.nev + ' névjegye';
+      document.getElementById('kartyaHelye').replaceChildren(kartyaEpit(a));
+    } catch (hiba) {
+      document.getElementById('kartyaHelye').textContent = 'Hibás névjegy-link 😕';
+    }
+    document.getElementById('labjegyzet').textContent =
+      `Ezt a névjegyet a gazdája saját maga programozta ${ISKOLA} nyílt napján. ` +
+      `Ha szeretnéd megtanulni, hogyan készülnek a weboldalak és alkalmazások, várunk szoftverfejlesztő és -tesztelő szakra!`;
+  } else {
+    kod.value = SABLON;
+    kod.addEventListener('input', frissit);
+    frissit();
+  }
+</script>
+</body>
+</html>
